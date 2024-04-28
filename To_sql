@@ -1,0 +1,55 @@
+import pandas as pd
+import sqlite3
+import numpy as np
+
+file = '/Users/mattray/Desktop/Budget/transactions_1.01.24-3.31.24.csv'
+
+#Read, parse dates and organize
+df = pd.read_csv(file,parse_dates= True)
+df['Date'] = pd.to_datetime(df['Date']) #parsing date object type into datetime. We use Pandas function here.
+df['year_month'] = df['Date'].dt.strftime('%Y-%m') #from Datetime to string
+
+#insert raw data into SQL db
+conn = sqlite3.connect('/Users/mattray/Desktop/Matt.db')
+#df.to_sql(name = 'Transaction_List_MM', con =conn, if_exists= 'append')
+
+
+df['Transaction_type'] = np.where(df['Amount'] < 0, 'debit', 'credit')
+df['Amount'] = df['Amount'].abs()
+
+
+#Clean
+df.drop('Account', axis = 1, inplace = True)
+df.drop('Tags', axis=1, inplace = True)
+df.drop('Notes', axis=1, inplace = True)
+df.drop('Merchant', axis=1, inplace = True)
+df = df[df['Original Statement'].str.contains('MSPBNA|E*TRADE') == False] #Dropping transfers to Etrade
+df = df[df['Category'].str.contains('Credit Card Payment|Transfer') == False]
+
+#Personalize Categories
+df['Original Statement'] = df['Original Statement'].str.lower()
+df['Category'] = np.where(df['Original Statement'].str.contains('bodega'), 'Fast Food', df['Category'])
+df['Category'] = np.where(df['Original Statement'].str.contains('covenant eyes'), 'Health & Fitness', df['Category'])
+df['Category'] = np.where(df['Original Statement'].str.contains('oreilly'), 'Education', df['Category'])
+df['Category'] = np.where(df['Original Statement'].str.contains('recurring payment'), 'Subscription', df['Category'])
+df['Category'] = np.where(df['Original Statement'].str.contains('venmo'), 'Other', df['Category'])
+df['Category'] = np.where(df['Original Statement'].str.contains('quantum fiber'), 'Utilities', df['Category'])
+
+
+
+#Consolidate Columns
+df.Category.replace(['Television', 'Hotel', 'Movies & DVDs', 'Entertainment', 'Cash & ATM'], 'Leisure', inplace = True)
+df.Category.replace(['Newspapers & Magazines','Financial', 'Internet', 'Furnishings', 'Charity', 'Business Services','Uncategorized', 'Taxes', 'Rental Car & Taxi', 'Federal Tax'], 'Other', inplace = True)
+df.Category.replace(['ATM Fee','Fees & Charges', 'Finance Charge'], 'Fees', inplace = True)
+df.Category.replace(['Home Improvement','Gift', 'Sporting Goods', 'Clothing', 'Personal Care'], 'Shopping', inplace = True)
+df.Category.replace(['Fast Food', 'Food Delivery', 'Food & Dining','Coffee Shops','Alcohol & Bars', 'Restaurants'], 'Food and Drinks', inplace = True)
+df.Category.replace(['Transfer'], 'Misc_Transfers', inplace = True)
+df.Category.replace(['Mobile Phone', 'Hair', 'Gym', 'Music', 'Electronics & Software'], 'Monthly Expenses', inplace = True)
+df.Category.replace(['Gas & Fuel'], 'Gas', inplace = True)
+df.Category.replace(['Health & Fitness', 'Education'], 'Personal Development', inplace = True)
+df.Category.replace(['Service & Parts'], 'Car Service & Parts', inplace = True)
+
+df.rename(columns = {'Original Statement': 'Description'}, inplace = True)
+
+#Insert clean data into SQL table
+df.to_sql(name = 'Transactions_MM_Prod', con =conn, index=False, if_exists= 'replace')
