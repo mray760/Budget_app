@@ -1,0 +1,23 @@
+import pandas as pd
+import datetime as dt
+import plotly.express as px
+import sqlite3
+
+
+#SQL to Pandas Dataframe
+conn = sqlite3.connect('/Users/mattray/Desktop/Matt.db')
+df = pd.read_sql_query("SELECT * FROM Transactions_MM_Prod", conn)
+
+df['Date'] = pd.to_datetime(df['Date'])
+
+
+Monthly_Expenses = df.loc[df.Transaction_type == 'debit']
+Monthly_Expenses = Monthly_Expenses.set_index('Date').groupby([pd.Grouper(freq="M"), 'Category']).sum().reset_index()
+Monthly_Expenses = pd.pivot_table(Monthly_Expenses, values = ['Amount'], index = ['Category', 'Date'], aggfunc=sum).reset_index()
+Monthly_Expenses = Monthly_Expenses.sort_values(by='Amount', ascending=True)
+scatter_plot = px.bar(Monthly_Expenses, x = 'Date', y = 'Amount', color= 'Category', title= 'Monthly Expense')
+scatter_plot.update_layout(yaxis_tickformat = ',')
+scatter_plot.update_layout(xaxis = dict(
+    tickvals = Monthly_Expenses['Date']
+))
+scatter_plot.update_xaxes(tickformat="%d-%b-%Y")
