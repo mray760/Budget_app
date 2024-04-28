@@ -1,0 +1,17 @@
+import datetime as dt
+import sqlite3
+import plotly.express as px
+
+
+conn = sqlite3.connect('/Users/mattray/Desktop/Matt.db')
+df = pd.read_sql_query("SELECT * FROM Transactions_MM_Prod", conn)
+df['Date'] = pd.to_datetime(df['Date'])
+
+
+Expenses_Breakdown = df.set_index('Date').groupby([pd.Grouper(freq="M"), 'Category']).sum().reset_index()
+Expenses_Breakdown = Expenses_Breakdown[Expenses_Breakdown['Category'].str.contains('Paycheck')==False]
+Expenses_Breakdown = Expenses_Breakdown[Expenses_Breakdown['Category'].str.contains('Income')==False]
+
+scatter_plot = px.line(Expenses_Breakdown, x = 'Date', y = 'Amount', color = 'Category', title = 'Expense Breakdown')
+scatter_plot.update_layout(yaxis_tickformat = ',')
+
