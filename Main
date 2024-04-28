@@ -1,0 +1,96 @@
+from dash import Dash
+from dash.dependencies import Input,Output
+from dash import dcc
+from dash import html
+import dash_bootstrap_components as dbc
+import sqlite3
+import pandas as pd
+from dateutil.relativedelta import relativedelta
+
+from Container import Income_Expense as ie, Expense_Breakdown as eb, Monthly_Expenses as me
+
+conn = sqlite3.connect('/Users/mattray/Desktop/Matt.db')
+df = pd.read_sql_query("SELECT * FROM Transactions_MM_Prod", conn)
+
+df['Date'] = pd.to_datetime(df['Date'])
+
+
+
+
+app = Dash(__name__,external_stylesheets= [dbc.themes.DARKLY])
+
+app.layout = html.Div([
+    html.H1("My Budget Report", style={'text-align': 'center', 'color': 'white'}),
+
+    html.Div([
+        html.Div([
+            dcc.Dropdown(id="select_visual",
+                         options=[
+                             {"label": "Income_Expense", "value": 'Income_Expense'},
+                             {"label": "Expense_Breakdown", "value": 'Expense_Breakdown'},
+                             {"label": "Monthly_Expenses", "value": 'Monthly_Expenses'}],
+                         multi=False,
+                         value='Income_Expense',
+                         style={'width': "60%"},
+                         placeholder='Please select...',
+                         clearable=False)], className='six columns'
+        ),
+        html.Div([
+            dcc.Dropdown(
+                id="select_range",
+                options=[
+                    {"label": "Last 12 months", "value": 12},
+                    {"label": "Last 6 months", "value": 6},
+                    {"label": "All Time", "value": 0}],
+                multi=False,
+                value=6,
+                style={'width': '60%', 'margin-left': '295px'}
+            ), ], className='six columns',
+        )
+    ], className= 'row'),
+
+
+
+    html.Div(
+        dcc.Graph(
+                id='Graphs', figure={},style={'height':'80vh'}
+                    ))
+
+])
+
+
+
+@app.callback(
+    Output(component_id='Graphs',component_property='figure'),
+    [Input(component_id='select_visual',component_property='value'),
+     Input(component_id= 'select_range',component_property='value')]
+)
+
+def update_graph(option_select, range_select): #each call back needs a function. Each argument connects to an input. Each dropdown selection will appear as Option_Select
+    print(option_select)
+
+    if option_select == 'Expense_Breakdown':
+        if range_select != 0:
+            eb.scatter_plot.update_xaxes(range = [df['Date'].max() - relativedelta(months=range_select), df['Date'].max()])
+            return eb.scatter_plot
+        elif range_select == 0:
+            eb.scatter_plot.update_xaxes(range=[df['Date'].min(), df['Date'].max()])
+            return eb.scatter_plot
+    elif option_select == 'Income_Expense':
+        if range_select != 0:
+            ie.scatter_plot.update_xaxes(range = [df['Date'].max() - relativedelta(months=range_select), df['Date'].max()])
+            return ie.scatter_plot
+        elif range_select == 0:
+            ie.scatter_plot.update_xaxes(range=[df['Date'].min(), df['Date'].max()])
+            return ie.scatter_plot
+    elif option_select == 'Monthly_Expenses':
+        if range_select != 0:
+            me.scatter_plot.update_xaxes(range = [df['Date'].max() - relativedelta(months=range_select), df['Date'].max() + relativedelta(months= 1)])
+            return me.scatter_plot
+        elif range_select == 0:
+            me.scatter_plot.update_xaxes(range=[df['Date'].min(), df['Date'].max() + relativedelta(months=1)])
+            return me.scatter_plot
+
+
+if __name__ == "__main__":
+    app.run_server(debug=True)
