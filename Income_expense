@@ -1,0 +1,23 @@
+import pandas as pd
+from datetime import datetime, timedelta
+import plotly.express as px
+import sqlite3
+
+
+
+#SQL to Pandas Dataframe
+conn = sqlite3.connect('/Users/mattray/Desktop/Matt.db')
+df = pd.read_sql_query("SELECT * FROM Transactions_MM_Prod", conn)
+
+df['Date'] = pd.to_datetime(df['Date'])
+
+
+#Income Expense Visual
+Income_Expense = df.set_index('Date').groupby([pd.Grouper(freq="M"), 'Transaction_type']).sum().reset_index()
+Income_Expense.Transaction_type.replace(['credit'], 'Income', inplace= True) #Change to Income for line legend
+Income_Expense.Transaction_type.replace(['debit'], 'Expense', inplace= True) #Change to Expense for line legend
+
+#non-daily visual
+scatter_plot = px.line(Income_Expense, x = 'Date', y = 'Amount', color = 'Transaction_type', title = 'Income and Expense', color_discrete_sequence= ['green','red'],
+                       category_orders= {'Cash Flow': ['Expense', 'Income']})
+scatter_plot.update_layout(yaxis_tickformat = ',')
